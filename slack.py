@@ -2,24 +2,24 @@ import websocket
 import requests
 
 import json
+import threading.Timer as Timer
 
 
 class Slack(object):
-    def __init__(self, team, email=None, passw=None, token=None):
+    def __init__(self, team, email=None, passw=None, token=None,
+    	         userAgent="Mozilla/5.0 PySlack Client"):
         self.team_url = 'https://' + team + '.slack.com'
         self.ok = True
+        self.userAgent = userAgent
         if token is not None:
             self.token = token
             print('connecting')
-            self._s = requests.Session()
-            if not self._s:
-                self.ok = False
-                self.status = 'failed to establish a session'
-                return
+            self._connect()
             print('logging in')
             self._boot_data = self.do_api('rtm.start', {})
         else:
             print('connecting')
+            self.userAgent += " Like Gecko"  # makes sure were not nudged off
             self._connect()
             if not self.ok:
                 return
@@ -50,7 +50,7 @@ class Slack(object):
         self._s = requests.Session()
         if self._s:
             self._s.headers.update({'User-Agent':
-                                    'Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0'})
+                                    self.userAgent})
             return
         self.ok = False
         self.status = 'failed to establish a session'
@@ -100,5 +100,16 @@ class Slack(object):
     def setup_ws(self):
         self.ws = websocket.create_connection(self._ws_url)
 
+    def sendEvent(self, Type, data=None, track=False):
+    	eid = self.getNextId()
+    	self.ws.send(json.dumps({
+    			'type': Type,
+    			'id': eid
+    		}))
+
+    def _send_ping(self):
+    	Timer(2.00, send_ping).start()
+    	self.send_event("ping", track=True)
+
     def setup_ping(self):
-        pass
+        Timer(2.00, self._send_ping).start()
